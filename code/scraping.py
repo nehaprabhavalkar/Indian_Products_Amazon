@@ -1,15 +1,15 @@
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-import numpy as np
 import re
-import datetime
 import warnings
 from utils import get_company_list
 warnings.filterwarnings('ignore')
 
 
 DATA_PATH = '../data/'
+
+FILE_NAME = 'reviews.csv'
 
 headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36' } 
 
@@ -20,25 +20,30 @@ def get_product_asin(headers, company_list):
         soup = BeautifulSoup(request.content)
         
         asin = []
-                                                    
-        for i in soup.findAll('div', attrs={'class':['sg-col-4-of-12 s-result-item s-asin sg-col-4-of-16 sg-col s-widget-spacing-small sg-col-4-of-20']}):
-            asin.append(i['data-asin'])
+        asins = soup.findAll('div', attrs={'class':['sg-col-4-of-12 s-result-item s-asin sg-col-4-of-16 sg-col s-widget-spacing-small sg-col-4-of-20']})                                             
         
-        asin = asin[1:21]
+        for number in asins:
+            asin.append(number['data-asin'])
+        
+        asin = asin[1:11]
 
         return asin
         
 
 def get_product_links(headers, company_list, asin):
     link=[]
+
     for comp in company_list:    
-        for i in range(0,len(asin)):
-            url='https://www.amazon.in/dp/'+asin[i]
+        for number in range(0,len(asin)):
+            url='https://www.amazon.in/dp/'+asin[number]
+
             page=requests.get(url,headers=headers)
             soup=BeautifulSoup(page.content)
             
-            for i in soup.findAll('a',{'class':['a-link-emphasis a-text-bold']}):
-                link.append(i['href'])
+            hrefs = soup.findAll('a',{'class':['a-link-emphasis a-text-bold']})
+
+            for href in hrefs:
+                link.append(href['href'])
     
     link = link[1:11]
 
@@ -54,25 +59,45 @@ def get_product_details(headers, company_list, asin, link):
     name = []
     
     for comp in company_list:
-        for i in range(0,len(link)):
+        for idx in range(0,len(link)):
     
-            for j in range(0,10):
+            for pg_no in range(0,2):
             
-                url='https://www.amazon.in'+link[i]+'&pageNumber='+str(j)
-                rev_page=requests.get(url,headers=headers)
+                url='https://www.amazon.in' + link[idx] + '&pageNumber=' + str(pg_no)
+                review_page=requests.get(url, headers=headers)
             
-                soup=BeautifulSoup(rev_page.content)
-            
-                for k in soup.findAll('span',{'data-hook':'review-body'}):
-                    reviews.append(k.text.strip())
+                soup=BeautifulSoup(review_page.content)
+
+                review_body = soup.findAll('span',{'data-hook':'review-body'})
+
+                for body in review_body:
+                    reviews.append(body.text.strip() if body else "")
                 
-                for k in soup.findAll('i',{'data-hook':'review-star-rating'}):
-                    stars.append(k.text.split(' ')[0].split('.')[0])
-            
-                for k in soup.findAll('span',{'data-hook':'review-date'}):
-                    dates.append(k.text)
-                    name.append(link[i].split('/')[1])
-                    pasin.append(asin[i])
+                review_stars = soup.findAll('i',{'data-hook':'review-star-rating'})
+
+                for star in review_stars:
+                    stars.append(star.text.split(' ')[0].split('.')[0] if star else 0)
+
+                review_dates = soup.findAll('span',{'data-hook':'review-date'})
+
+                for date in review_dates:
+                    dates.append(date.text)
+                    name.append(link[idx].split('/')[1])
+                    pasin.append(asin[idx])
+
+    return pasin, name, dates, stars, reviews
+
+
+def create_dataframe(pasin, name, dates, stars, reviews):
+    reviews_dict = {'asin':pasin,'name':name,'date':dates,'rating':stars,'review':reviews}
+
+    reviews_df=pd.DataFrame(data=reviews_dict, columns=['asin','name','date','rating','review']) 
+
+    return reviews_df 
+
+
+def save_to_csv(df, path, file_name):
+    df.to_csv(path + file_name, index=False)
 
 
 if __name__ == '__main__':
@@ -83,4 +108,8 @@ if __name__ == '__main__':
 
     link = get_product_links(headers, company_list, asin)
 
-    get_product_details(headers, company_list, asin, link)
+    pasin, name, dates, stars, reviews = get_product_details(headers, company_list, asin, link)
+
+    reviews_df = create_dataframe(pasin, name, dates, stars, reviews)
+
+    save_to_csv(reviews_df, DATA_PATH, FILE_NAME)
