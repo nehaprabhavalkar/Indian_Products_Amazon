@@ -7,3 +7,7 @@ def get_company_list():
 
 
     return company_list
+
+def save_to_csv(df, path, file_name):
+    df.to_csv(path + file_name, index=False)
+

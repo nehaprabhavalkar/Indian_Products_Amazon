@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import re
 import warnings
-from utils import get_company_list
+from utils import get_company_list, save_to_csv
 warnings.filterwarnings('ignore')
 
 
@@ -94,10 +94,6 @@ def create_dataframe(pasin, name, dates, stars, reviews):
     reviews_df=pd.DataFrame(data=reviews_dict, columns=['asin','name','date','rating','review']) 
 
     return reviews_df 
-
-
-def save_to_csv(df, path, file_name):
-    df.to_csv(path + file_name, index=False)
 
 
 if __name__ == '__main__':
