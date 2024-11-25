@@ -9,7 +9,7 @@ DATA_PATH = '../data/'
 
 FILE_NAME = 'reviews.csv'
 
-
+#########################
 def clean_data(reviews_df):
     for i in range(0,len(reviews_df)):
         reviews_df.date[i] = re.sub('Reviewed in India on','',reviews_df.date[i])
